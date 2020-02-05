@@ -9,10 +9,15 @@ import os
 # 3 = 3
 
 
+class Node:
+    def __init__(self, val):
+        self.val = val
+        self.next = None
 
 class Process:
     def __init__(self):
-        self.PCB = []
+        self.head = None # list of parent processes
+        self.PCB = None
         self.RCB = []
         self.RL = []
         self.currentProcess = None
@@ -28,18 +33,25 @@ class Process:
                 file.write(str(i))
                 
     def init(self):
+        self.head = []
+        self.head.append(Node(0))
+        self.PCB = [0]*16
+        self.RCB = [1,1,2,3]
+        self.currentProcess = 0
+        PCB[0] = 1
+
         print("process 0 created")
         self.write(0)
 
     def create(self, priority):
-        self.PCB = [0]*16
-        self.RCB = [1,1,2,3]
-        # RL = []
-        self.currentProcess = 0
-
         with open("testoutput.txt", "a+") as file:
-            file.write(str(priority) + " ")
-        print("process %d running" % self.currentProcess)
+            file.write(str(currentProcess) + " ")
+        
+        for i in range(0, len(PCB)):
+            if PCB[i] == 0:
+                PCB[i] = 1
+                break
+        print("process %d created" % i)
 
     def destroy(self, process):
         pass
