@@ -16,10 +16,10 @@ class Node:
 
 class Process:
     def __init__(self):
-        self.head = None # list of parent processes
-        self.PCB = None
-        self.RCB = []
-        self.RL = []
+        # self.head = None # list of parent processes
+        self.PCB = None # process
+        self.RCB = None # resource 
+        self.RL = None # ready list
         self.currentProcess = None
 
     def write(self, i):
@@ -33,23 +33,24 @@ class Process:
                 file.write(str(i))
                 
     def init(self):
-        self.head = []
-        self.head.append(Node(0))
+        # self.head = []
+        # self.head.append(Node(0))
         self.PCB = [0]*16
         self.RCB = [1,1,2,3]
+        self.RL = []
         self.currentProcess = 0
-        PCB[0] = 1
+        self.PCB[0] = 1
 
         print("process 0 created")
         self.write(0)
 
     def create(self, priority):
         with open("testoutput.txt", "a+") as file:
-            file.write(str(currentProcess) + " ")
+            file.write(str(self.currentProcess) + " ")
         
-        for i in range(0, len(PCB)):
-            if PCB[i] == 0:
-                PCB[i] = 1
+        for i in range(0, len(self.PCB)):
+            if self.PCB[i] == 0:
+                self.PCB[i] = 1
                 break
         print("process %d created" % i)
 
