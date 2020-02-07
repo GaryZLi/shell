@@ -39,6 +39,14 @@ class Process:
 
         self.write('init')
 
+        print("Created process:", 0)
+        print("Process list:", self.ProcessList) 
+        print("Resource list:", self.ResourceList)
+        print("Process list and its resources:", self.ProcessListOfResources)
+        print("Process list and its waiting list:", self.ProcessResourceWL)
+        print("Ready list:", self.ReadyList) 
+        print("Waitlist:", self.WaitList)
+
     def create(self, priority):
         if priority == 0 or self.ProcessList == None:
             return self.write(-1)
@@ -52,7 +60,7 @@ class Process:
         self.ProcessList[self.currentProcess].append(createdProcess) # add the process to parent's list
         self.ReadyList[priority].append(createdProcess) # add current process to ready list
 
-        print("Created process:", createdProcess)
+        print("Created process:", createdProcess, "Priority:", priority)
         print("Process list:", self.ProcessList) 
         print("Resource list:", self.ResourceList)
         print("Process list and its resources:", self.ProcessListOfResources)
@@ -64,6 +72,7 @@ class Process:
 
     def destroy(self, process, total = 0): 
         if len(self.ProcessList[process]) == 0:
+            print("no process to destroy")
             return self.write(-1)            
 
         while len(self.ProcessList[process]) > 1: # loops thru all its children processes
@@ -125,7 +134,7 @@ class Process:
 
     # get current process, release its resources
     def release(self, resource, units): # add back into ready list for the waiting processes, when released resource is available
-        if self.currentProcess == 0:
+        if self.currentProcess == 0 or resource > 3:
             return self.write(-1)
         
         currentUnits =  self.ProcessListOfResources[self.currentProcess][resource] # get the units of the resource
@@ -175,6 +184,7 @@ class Process:
         print("Process list and its waiting list:", self.ProcessResourceWL)
         print("Ready list:", self.ReadyList) 
         print("Waitlist:", self.WaitList) 
+
         self.scheduler()
 
     def scheduler(self): #fix scheduler for blocked resources
@@ -193,17 +203,20 @@ class Process:
 
     def shell(self):
         with open(sys.argv[1], "r") as file:
+            lineNum = 1
             for line in file:
                 line = line.split()
+                print("Line:", lineNum, line)
+                lineNum += 1
                 if (len(line) > 0):
                     if line[0] == "in":
                         self.init()
                     elif line[0] == "cr":
                         self.create(int(line[1]))
                     elif line[0] == "de":
-                        print(self.destroy(int(line[1])), "process destroyed")
+                        if self.destroy(int(line[1])) != None:
+                            self.scheduler()
                         # self.destroy(int(line[1]))
-                        self.scheduler()
                     elif line[0] == "rq":
                         self.request(int(line[1]), int(line[2]))
                     elif line[0] == "rl":
