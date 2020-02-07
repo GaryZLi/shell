@@ -7,12 +7,12 @@ import os
 class Process:
     def __init__(self):
         # self.head = None # list of parent processes
-        self.PCB = None # process
-        self.RCB = None # resource 
-        self.PRL = None # process resource list
-        self.RWL = None # resource waitlist
-        self.RL = None # ready list
-        self.WL = None # waiting list
+        self.ProcessList = None # process
+        self.ResourceList = None # resource 
+        self.ProcessListOfResources = None # process resource list
+        self.ProcessResourceWL = None # resource waitlist
+        self.ReadyList = None # ready list
+        self.WaitList = None # waiting list
         self.currentProcess = None
 
     def write(self, i):
@@ -26,53 +26,73 @@ class Process:
                 file.write(str(i) + ' ')
                 
     def init(self):
-        self.PCB = [[]]*16
-        self.RCB = [1,1,2,3]
-        self.PRL = [[0 for _ in range(4)] for _ in range(16)] 
-        self.RWL = [[] for _ in range(16)]
-        self.RL = [0, [], []]
-        self.WL = [0, [], [], []]
+        self.ProcessList = [[]]*16
+        self.ResourceList = [1,1,2,3]
+        self.ProcessListOfResources = [[0 for _ in range(4)] for _ in range(16)] 
+        self.ProcessResourceWL = [[] for _ in range(16)]
+        self.ReadyList = [0, [], []]
+        # self.WL = [0, [], [], []] ##
+        self.WaitList = [[0], [], [], []]
 
         self.currentProcess = 0
-        self.PCB[0] = [0]
+        self.ProcessList[0] = [0]
 
-        print("process 0 created")
         self.write('init')
 
     def create(self, priority):
-        if priority == 0 or self.PCB == None:
+        if priority == 0 or self.ProcessList == None:
             return self.write(-1)
 
         # get the next free process
-        for createdProcess in range(0, len(self.PCB)):
-            if len(self.PCB[createdProcess]) == 0:
-                self.PCB[createdProcess] = [(self.currentProcess, priority)] # initialize the created process with (parentProcess, priority)
+        for createdProcess in range(0, len(self.ProcessList)):
+            if len(self.ProcessList[createdProcess]) == 0:
+                self.ProcessList[createdProcess] = [(self.currentProcess, priority)] # initialize the created process with (parentProcess, priority)
                 break
 
-        self.PCB[self.currentProcess].append(createdProcess) # add the process to parent's list
-        self.RL[priority].append(createdProcess) # add current process to ready list
-        # print("process %d created" % createdProcess)
+        self.ProcessList[self.currentProcess].append(createdProcess) # add the process to parent's list
+        self.ReadyList[priority].append(createdProcess) # add current process to ready list
+
+        print("Created process:", createdProcess)
+        print("Process list:", self.ProcessList) 
+        print("Resource list:", self.ResourceList)
+        print("Process list and its resources:", self.ProcessListOfResources)
+        print("Process list and its waiting list:", self.ProcessResourceWL)
+        print("Ready list:", self.ReadyList) 
+        print("Waitlist:", self.WaitList)
 
         self.scheduler()
 
     def destroy(self, process, total = 0): 
-        if len(self.PCB[process]) == 0:
+        if len(self.ProcessList[process]) == 0:
             return self.write(-1)            
 
-        while len(self.PCB[process]) > 1: # loops thru all its children processes
+        while len(self.ProcessList[process]) > 1: # loops thru all its children processes
             total += 1 
-            self.destroy(self.PCB[process][1], total)
+            self.destroy(self.ProcessList[process][1], total)
 
-        index = self.PCB[process].pop() # pop the process --> (parentProcess, priority) 
-        self.PCB[index[0]].remove(process) # then remove it from parent list
-        self.RL[index[1]].remove(process) # remove process from ready list
+        index = self.ProcessList[process].pop() # pop the process --> (parentProcess, priority) 
 
-        #idk if this is right -->  destroy from waiting list, add back resource, 
-        for resource in range(0, len(self.PRL[self.currentProcess])): # if this process contains any resource, add it back to resource list
-            if self.PRL[self.currentProcess][resource] > 0:
-                self.RCB[resource] += self.PRL[self.currentProcess][resource]
-        self.PRL[self.currentProcess] = [0, 0, 0, 0]              
-                    
+        self.ProcessList[index[0]].remove(process) # then remove it from parent list
+        
+        try: # this removes it from ready list
+            self.ReadyList[index[1]].remove(process) # remove process from ready list
+        except: # if not in ready list, then remove it from waitlist
+            self.WaitList[self.ProcessResourceWL[process].pop()[0]].remove(process)
+
+        # add back resources
+        for resource in range(0, len(self.ProcessListOfResources[process])): # if this process contains any resource, add it back to resource list
+            if self.ProcessListOfResources[process][resource] > 0:
+                self.ResourceList[resource] += self.ProcessListOfResources[process][resource]
+        self.ProcessListOfResources[process] = [0, 0, 0, 0]              
+
+        print("Destroyed process:", process)
+        print("Process list:", self.ProcessList) 
+        print("Resource list:", self.ResourceList)
+        print("Process list and its resources:", self.ProcessListOfResources)
+        print("Process list and its waiting list:", self.ProcessResourceWL)
+        print("Ready list:", self.ReadyList) 
+        print("Waitlist:", self.WaitList)
+
         return total + 1
 
     def request(self, resource, units): # remove from ready list if blocked
@@ -82,13 +102,24 @@ class Process:
         if resource > 3:
             return self.write(-1)
 
-        if self.RCB[resource] >= units: # resource has enough units to fulfill request
-            self.RCB[resource] -= units
-            self.PRL[self.currentProcess][resource] += units
+        if self.ResourceList[resource] >= units: # resource has enough units to fulfill request
+            self.ResourceList[resource] -= units
+            self.ProcessListOfResources[self.currentProcess][resource] += units
 
         else: # otherwise add it to waiting list and block the current process from ready list, so schedular wont choose it
-            self.RWL[self.currentProcess].append([resource, units])
-            self.WL[resource].append(self.currentProcess) # append current process to the waitlist
+            self.ProcessResourceWL[self.currentProcess].append([resource, units])
+            self.WaitList[resource].append(self.currentProcess) # append current process to the waitlist
+            self.ReadyList[self.ProcessList[self.currentProcess][0][1]].remove(self.currentProcess) # remove it from the ready list
+
+
+        print("Process:", self.currentProcess, "requested Resource:", resource, "Units:", units)
+        print("Process list:", self.ProcessList) 
+        print("Resource list:", self.ResourceList)
+        print("Process list and its resources:", self.ProcessListOfResources)
+        print("Process list and its waiting list:", self.ProcessResourceWL)
+        print("Ready list:", self.ReadyList) 
+        print("Waitlist:", self.WaitList)
+
 
         self.scheduler()
 
@@ -97,42 +128,68 @@ class Process:
         if self.currentProcess == 0:
             return self.write(-1)
         
-        currentUnits =  self.PRL[self.currentProcess][resource] # get the units of the resource
+        currentUnits =  self.ProcessListOfResources[self.currentProcess][resource] # get the units of the resource
        
         # amount we're trying to release is greater than what we have
         if units > currentUnits:
             return self.write(-1)
         # otherwise, we have enough resources to release
         else:
-            self.RCB[resource] += units
-            self.PRL[self.currentProcess][resource] -= units
+            self.ResourceList[resource] += units
+            self.ProcessListOfResources[self.currentProcess][resource] -= units
 
             # check waitling list for any resources requesting the released resource, if so add them
-            if len(self.WL[resource]) > 0: # if there's a process waiting for that resource
-                for requestList in range(0, len(self.RWL[self.WL[resource][0]])):
-                    if self.RWL[self.WL[resource][0]][requestList][0] == resource: # our process has a list requesting the released resource
-                        self.RWL[self.WL[resource][0]].pop(requestList) # pop it off the process's waitlist
-                        self.RCB[resource] -= units
-                        self.PRL[self.WL[resource].pop(0)][resource] += units # pop the process off the waiting list, add requested resource to that process
+            if len(self.WaitList[resource]) > 0: # if there's a process waiting for that resource
+                for requestList in range(0, len(self.ProcessResourceWL[self.WaitList[resource][0]])):
+                    if self.ProcessResourceWL[self.WaitList[resource][0]][requestList][0] == resource: # our process has a list requesting the released resource
+                        self.ProcessResourceWL[self.WaitList[resource][0]].pop(requestList) # pop it off the process's waitlist
+                        self.ResourceList[resource] -= units
+                        process = self.WaitList[resource].pop(0)
+                        self.ProcessListOfResources[process][resource] += units # pop the process off the waiting list, add requested resource to that process
+                        self.ReadyList[self.ProcessList[process][0][1]].append(process)
+
+        print("Process", self.currentProcess, "released Resource:", resource, "Units:", units)
+        print("Process list:", self.ProcessList) 
+        print("Resource list:", self.ResourceList)
+        print("Process list and its resources:", self.ProcessListOfResources)
+        print("Process list and its waiting list:", self.ProcessResourceWL)
+        print("Ready list:", self.ReadyList) 
+        print("Waitlist:", self.WaitList)
+
+
 
         self.scheduler()
 
     def timeout(self):
-        priority = self.PCB[self.currentProcess][0][1]
-        self.RL[priority].append(self.RL[priority].pop(0))
+        if self.currentProcess == 0: # can't timeout 0
+            return self.scheduler()  
 
+        priority = self.ProcessList[self.currentProcess][0][1]
+        self.ReadyList[priority].remove(self.currentProcess)
+        self.ReadyList[priority].append(self.currentProcess)
+
+        print("timing out:", self.currentProcess)
+        print("Process list:", self.ProcessList) 
+        print("Resource list:", self.ResourceList)
+        print("Process list and its resources:", self.ProcessListOfResources)
+        print("Process list and its waiting list:", self.ProcessResourceWL)
+        print("Ready list:", self.ReadyList) 
+        print("Waitlist:", self.WaitList) 
         self.scheduler()
 
     def scheduler(self): #fix scheduler for blocked resources
-        for priority in range(len(self.RL)-1, 0, -1):
-            for process in self.RL[priority]:
-                if len(self.RWL[process]) == 0: # if empty
+        for priority in range(len(self.ReadyList)-1, 0, -1):
+            for process in self.ReadyList[priority]:
+                if len(self.ProcessResourceWL[process]) == 0: # if empty
                     self.currentProcess = process
                     self.write(self.currentProcess)
+                    print("current process:", self.currentProcess)
                     return
 
         self.currentProcess = 0 # if none in ready list is empty, current process
         self.write(0)
+
+        print("current process:", self.currentProcess)
 
     def shell(self):
         with open(sys.argv[1], "r") as file:
@@ -145,6 +202,7 @@ class Process:
                         self.create(int(line[1]))
                     elif line[0] == "de":
                         print(self.destroy(int(line[1])), "process destroyed")
+                        # self.destroy(int(line[1]))
                         self.scheduler()
                     elif line[0] == "rq":
                         self.request(int(line[1]), int(line[2]))
@@ -153,181 +211,7 @@ class Process:
                     elif line[0] == "to":
                         self.timeout()
 
+                input()
+                
 run = Process() 
 run.shell()
-
-# a = [[], [10], [11, 2]]
-
-
-# for x in a:
-#     for y in x:
-#         print(y)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # class Process:
-#     def __init__(self):
-#         # self.head = None # list of parent processes
-#         self.PCB = None # process
-#         self.RCB = None # resource 
-#         self.PRL = None # process resource list
-#         self.RWL = None # resource waitlist
-#         self.RL = None # ready list
-#         self.currentProcess = None
-
-#     def write(self, i):
-#         with open("testoutput.txt", "a+") as file:
-#             if i == 0:
-#                 if os.stat("testoutput.txt").st_size > 0:
-#                     file.write("\n" + str(i) + " ")
-#                 else:
-#                     file.write("0 ")
-#             else:
-#                 file.write(str(i) + ' ')
-                
-#     def init(self):
-#         self.PCB = [[]]*16
-#         self.RCB = [1,1,2,3]
-#         self.PRL = [[0, 0, 0, 0]] * 16
-#         self.RWL = [0] * 16
-#         self.RL = [0, [], []]
-#         self.currentProcess = 0
-#         self.PCB[0] = [0]
-
-#         print("process 0 created")
-#         self.write(0)
-
-#     def create(self, priority):
-#         if priority == 0 or self.PCB == None:
-#             return self.write(-1)
-
-#         # get the next free process
-#         for createdProcess in range(0, len(self.PCB)):
-#             if len(self.PCB[createdProcess]) == 0:
-#                 self.PCB[createdProcess] = [(self.currentProcess, priority)] # initialize the created process with (parentProcess, priority)
-#                 break
-
-#         self.PCB[self.currentProcess].append(createdProcess) # add the process to parent's list
-#         self.RL[priority].append(createdProcess) # add current process to ready list
-#         print("process %d created" % createdProcess)
-
-#         self.scheduler()
-
-#         # self.write(self.currentProcess)
-
-#     def destroy(self, process, total = 0): 
-#         while len(self.PCB[process]) > 1: # loops thru all its children processes
-#             total += 1 
-#             self.destroy(self.PCB[process][1], total)
-
-#         index = self.PCB[process].pop() # pop the process --> (parentProcess, priority) 
-#         self.PCB[index[0]].remove(process) # then remove it from parent list
-#         self.RL[index[1]].remove(process) # remove process from ready list
-#         # remove it from waiting list?
-#         return total + 1
-
-#     def request(self, resource, units): # has sched, remove from ready list if blocked
-#         if self.RCB[resource] <= units: # resource has enough units to fulfill request
-#             self.RCB[resource] -= units
-#             self.PRL[self.currentProcess][resource] += units
-#         else: # otherwise add it to waiting list and block the current process from ready list, so schedular wont choose it
-#             self.RWL[self.currentProcess] = [resource, units]
-
-#             # self.RL[self.PCB[self.currentProcess][0][1]].remove(self.currentProcess)
-
-#         self.scheduler()
-
-
-#     # get current process, release its resources
-#     def release(self, resource, units): # add back into ready list for the waiting processes
-#         currentUnits =  self.PRL[self.currentProcess][resource] # get the units of the resource
-
-#         # # amount we're trying to release is greater than what we have
-#         if units > currentUnits:
-#             self.write(-1)
-#         # otherwise, we have enough resources to release
-#         else:
-#             self.RCB[resource] += units
-#             self.PRL[self.currentProcess][resource] -= units
-#             self.write(self.currentProcess)
-
-#     def timeout(self):
-#         priority = self.PCB[self.currentProcess][0][1]
-#         self.RL[priority].append(self.RL[priority].pop(0))
-
-#         self.scheduler()
-
-#     def scheduler(self): #fix scheduler for blocked resources
-#         if len(self.RL[2]) > 0:
-#             self.currentProcess = self.RL[2][0]
-#         elif len(self.RL[1]) > 0:
-#             self.currentProcess = self.RL[1][0]
-#         else:
-#             self.currentProcess = 0
-
-#         self.write(self.currentProcess)
-#         print('process', self.currentProcess, 'is running')
-
-#     def shell(self):
-#         with open(sys.argv[1], "r") as file:
-#             for line in file:
-#                 line = line.split()
-
-#                 if (len(line) > 0):
-#                     if line[0] == "in":
-#                         self.init()
-#                     elif line[0] == "cr":
-#                         self.create(int(line[1]))
-#                     elif line[0] == "de":
-#                         print(self.destroy(int(line[1])), "process destroyed")
-#                         self.scheduler()
-#                     elif line[0] == "rq":
-#                         self.request(int(line[1]), int(line[2]))
-#                     elif line[0] == "rl":
-#                         self.release(int(line[1]), int(line[2]))
-#                     elif line[0] == "to":
-#                         self.timeout()
-
-#         print(self.PCB)
-
-# run = Process() 
-# run.shell()
-
-# # a = [[], [10], [11, 2]]
-
-
-# # for x in a:
-# #     for y in x:
-# #         print(y)
