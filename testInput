@@ -1,0 +1,11 @@
+in
+cr 2
+cr 1
+cr 1
+rq 3 3
+rq 3 2
+rq 2 2 
+to
+rq 2 2
+rl 2 2
+to # should be 3
